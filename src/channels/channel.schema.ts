@@ -12,8 +12,14 @@ export class Channel extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
-  members: Types.ObjectId[];
+  @Prop({
+    type: [{
+      userId: { type: Types.ObjectId, ref: 'User' },
+      joinedAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  })
+  members: { userId: Types.ObjectId; joinedAt: Date }[];
 
   @Prop({ default: false })
   isPrivate: boolean;

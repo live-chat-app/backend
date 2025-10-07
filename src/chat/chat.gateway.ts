@@ -155,8 +155,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // Add user to channel members if not already
-      if (!channel.members.includes(userId)) {
-        channel.members.push(userId);
+      const isMember = channel.members.some((m) => m.userId.toString() === userId);
+      if (!isMember) {
+        channel.members.push({ userId: userId as any, joinedAt: new Date() });
         await channel.save();
       }
 

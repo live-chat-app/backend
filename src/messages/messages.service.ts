@@ -7,9 +7,16 @@ import { Message } from './message.schema';
 export class MessagesService {
   constructor(@InjectModel(Message.name) private messageModel: Model<Message>) {}
 
-  async getChannelMessages(channelId: string, limit = 50, skip = 0) {
+  async getChannelMessages(channelId: string, limit = 50, skip = 0, joinedAt?: Date) {
+    const query: any = { channelId };
+
+    // Only show messages sent after the user joined
+    if (joinedAt) {
+      query.createdAt = { $gte: joinedAt };
+    }
+
     return this.messageModel
-      .find({ channelId })
+      .find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip)

@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { MessagesService } from './messages.service';
+import { ChannelsService } from '../channels/channels.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/user.schema';
@@ -7,15 +8,21 @@ import { User } from '../users/user.schema';
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
 export class MessagesController {
-  constructor(private messagesService: MessagesService) {}
+  constructor(
+    private messagesService: MessagesService,
+    private channelsService: ChannelsService,
+  ) {}
 
   @Get('channel/:channelId')
   async getChannelMessages(
     @Param('channelId') channelId: string,
+    @CurrentUser() user: any,
     @Query('limit') limit?: number,
     @Query('skip') skip?: number,
   ) {
-    return this.messagesService.getChannelMessages(channelId, limit, skip);
+    // Get when the user joined the channel
+    const joinedAt = await this.channelsService.getMemberJoinedAt(channelId, user._id.toString());
+    return this.messagesService.getChannelMessages(channelId, limit, skip, joinedAt || undefined);
   }
 
   @Get('direct/:userId')

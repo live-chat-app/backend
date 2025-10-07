@@ -12,7 +12,7 @@ export class ChannelsService {
     const channel = await this.channelModel.create({
       ...createChannelDto,
       createdBy: userId,
-      members: [userId],
+      members: [{ userId, joinedAt: new Date() }],
     });
     return channel.populate('createdBy', 'username email');
   }
@@ -21,15 +21,15 @@ export class ChannelsService {
     return this.channelModel
       .find({ isPrivate: false })
       .populate('createdBy', 'username email')
-      .populate('members', 'username email')
+      .populate('members.userId', 'username email')
       .exec();
   }
 
   async findUserChannels(userId: string) {
     return this.channelModel
-      .find({ members: userId })
+      .find({ 'members.userId': userId })
       .populate('createdBy', 'username email')
-      .populate('members', 'username email')
+      .populate('members.userId', 'username email')
       .exec();
   }
 
@@ -37,7 +37,7 @@ export class ChannelsService {
     const channel = await this.channelModel
       .findById(id)
       .populate('createdBy', 'username email')
-      .populate('members', 'username email')
+      .populate('members.userId', 'username email')
       .exec();
 
     if (!channel) {
@@ -53,12 +53,13 @@ export class ChannelsService {
       throw new NotFoundException('Channel not found');
     }
 
-    if (!channel.members.includes(userId as any)) {
-      channel.members.push(userId as any);
+    const isMember = channel.members.some((m) => m.userId.toString() === userId);
+    if (!isMember) {
+      channel.members.push({ userId: userId as any, joinedAt: new Date() });
       await channel.save();
     }
 
-    return channel.populate('members', 'username email');
+    return channel.populate('members.userId', 'username email');
   }
 
   async removeMember(channelId: string, userId: string) {
@@ -67,9 +68,19 @@ export class ChannelsService {
       throw new NotFoundException('Channel not found');
     }
 
-    channel.members = channel.members.filter((m) => m.toString() !== userId);
+    channel.members = channel.members.filter((m) => m.userId.toString() !== userId);
     await channel.save();
 
-    return channel.populate('members', 'username email');
+    return channel.populate('members.userId', 'username email');
+  }
+
+  async getMemberJoinedAt(channelId: string, userId: string): Promise<Date | null> {
+    const channel = await this.channelModel.findById(channelId);
+    if (!channel) {
+      return null;
+    }
+
+    const member = channel.members.find((m) => m.userId.toString() === userId);
+    return member ? member.joinedAt : null;
   }
 }
