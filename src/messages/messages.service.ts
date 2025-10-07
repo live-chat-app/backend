@@ -60,7 +60,7 @@ export class MessagesService {
       {
         $match: {
           recipientId: userId,
-          'readBy.userId': { $ne: userId },
+          readBy: { $not: { $elemMatch: { userId: userId } } },
         },
       },
       {
@@ -77,7 +77,7 @@ export class MessagesService {
         $match: {
           channelId: { $exists: true, $ne: null },
           sender: { $ne: userId },
-          'readBy.userId': { $ne: userId },
+          readBy: { $not: { $elemMatch: { userId: userId } } },
         },
       },
       {
