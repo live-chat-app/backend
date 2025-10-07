@@ -122,10 +122,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Send to channel or direct message
       if (data.channelId) {
-        // Emit to everyone in the channel including sender
+        // Emit to everyone in the channel (this includes the sender if they're in the room)
         this.server.to(data.channelId).emit('newMessage', populatedMessage);
-        // Also emit to sender if not in channel room yet
-        client.emit('newMessage', populatedMessage);
       } else if (data.recipientId) {
         // Find recipient socket
         const recipient = await this.userModel.findById(data.recipientId);
