@@ -6,7 +6,7 @@ export class Message extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sender: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: false, default: '' })
   content: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Channel' })

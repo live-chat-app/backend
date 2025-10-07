@@ -39,4 +39,9 @@ export class MessagesController {
   async searchMessages(@Query('q') query: string, @CurrentUser() user: any) {
     return this.messagesService.searchMessages(query, user._id.toString());
   }
+
+  @Get('unread-counts')
+  async getUnreadCounts(@CurrentUser() user: any) {
+    return this.messagesService.getUnreadCounts(user._id.toString());
+  }
 }

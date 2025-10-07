@@ -53,4 +53,50 @@ export class MessagesService {
       .limit(20)
       .exec();
   }
+
+  async getUnreadCounts(userId: string) {
+    // Get unread direct messages count per user
+    const directMessages = await this.messageModel.aggregate([
+      {
+        $match: {
+          recipientId: userId,
+          'readBy.userId': { $ne: userId },
+        },
+      },
+      {
+        $group: {
+          _id: '$sender',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Get unread channel messages count per channel
+    const channelMessages = await this.messageModel.aggregate([
+      {
+        $match: {
+          channelId: { $exists: true, $ne: null },
+          sender: { $ne: userId },
+          'readBy.userId': { $ne: userId },
+        },
+      },
+      {
+        $group: {
+          _id: '$channelId',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    return {
+      directMessages: directMessages.reduce((acc, item) => {
+        acc[item._id.toString()] = item.count;
+        return acc;
+      }, {}),
+      channelMessages: channelMessages.reduce((acc, item) => {
+        acc[item._id.toString()] = item.count;
+        return acc;
+      }, {}),
+    };
+  }
 }
