@@ -80,9 +80,37 @@ export class MessagesService {
       {
         $match: {
           channelId: { $exists: true, $ne: null },
-          sender: { $ne: userObjectId },
-          readBy: { $not: { $elemMatch: { userId: userObjectId } } },
         },
+      },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              // Exclude messages from the current user
+              {
+                $ne: [
+                  { $toString: '$sender' },
+                  userId
+                ]
+              },
+              // Exclude messages that have been read by the current user
+              {
+                $not: {
+                  $in: [
+                    { $toString: userObjectId },
+                    {
+                      $map: {
+                        input: '$readBy',
+                        as: 'read',
+                        in: { $toString: '$$read.userId' }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
       },
       {
         $group: {
@@ -105,20 +133,33 @@ export class MessagesService {
   }
 
   async getLastMessageTimes(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+
     // Get last message time for each user in direct messages
     const directMessagesUsers = await this.messageModel.aggregate([
       {
         $match: {
-          $or: [{ sender: userId }, { recipientId: userId }],
+          $or: [
+            { sender: userObjectId },
+            { recipientId: userObjectId },
+            { sender: userId },
+            { recipientId: userId }
+          ],
+        },
+      },
+      {
+        $addFields: {
+          senderStr: { $toString: '$sender' },
+          recipientStr: { $toString: '$recipientId' },
         },
       },
       {
         $addFields: {
           otherUser: {
             $cond: {
-              if: { $eq: ['$sender', userId] },
-              then: '$recipientId',
-              else: '$sender',
+              if: { $eq: ['$senderStr', userId] },
+              then: '$recipientStr',
+              else: '$senderStr',
             },
           },
         },
@@ -148,11 +189,15 @@ export class MessagesService {
 
     return {
       users: directMessagesUsers.reduce((acc, item) => {
-        acc[item._id.toString()] = item.lastMessageTime;
+        if (item._id) {
+          acc[item._id.toString()] = item.lastMessageTime;
+        }
         return acc;
       }, {}),
       channels: channelMessages.reduce((acc, item) => {
-        acc[item._id.toString()] = item.lastMessageTime;
+        if (item._id) {
+          acc[item._id.toString()] = item.lastMessageTime;
+        }
         return acc;
       }, {}),
     };
