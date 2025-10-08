@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Channel } from './channel.schema';
 import { CreateChannelDto } from './dto/create-channel.dto';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class ChannelsService {
-  constructor(@InjectModel(Channel.name) private channelModel: Model<Channel>) {}
+  constructor(
+    @InjectModel(Channel.name) private channelModel: Model<Channel>,
+    @Inject(forwardRef(() => ChatGateway)) private chatGateway: ChatGateway,
+  ) {}
 
   async create(createChannelDto: CreateChannelDto, userId: string) {
     const channel = await this.channelModel.create({
@@ -14,7 +18,12 @@ export class ChannelsService {
       createdBy: userId,
       members: [{ userId, joinedAt: new Date() }],
     });
-    return channel.populate('createdBy', 'username email');
+    const populatedChannel = await channel.populate('createdBy', 'username email');
+
+    // Broadcast new channel to all connected users
+    this.chatGateway.server.emit('newChannel', populatedChannel);
+
+    return populatedChannel;
   }
 
   async findAll() {
