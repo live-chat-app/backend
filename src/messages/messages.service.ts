@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Message } from './message.schema';
 
 @Injectable()
@@ -55,12 +55,16 @@ export class MessagesService {
   }
 
   async getUnreadCounts(userId: string) {
+    // Convert userId string to ObjectId for proper comparison
+    const userObjectId = new Types.ObjectId(userId);
+
     // Get unread direct messages count per user
+    // A message is unread if the userId is NOT in the readBy array
     const directMessages = await this.messageModel.aggregate([
       {
         $match: {
-          recipientId: userId,
-          readBy: { $not: { $elemMatch: { userId: userId } } },
+          recipientId: userObjectId,
+          readBy: { $not: { $elemMatch: { userId: userObjectId } } },
         },
       },
       {
@@ -76,8 +80,8 @@ export class MessagesService {
       {
         $match: {
           channelId: { $exists: true, $ne: null },
-          sender: { $ne: userId },
-          readBy: { $not: { $elemMatch: { userId: userId } } },
+          sender: { $ne: userObjectId },
+          readBy: { $not: { $elemMatch: { userId: userObjectId } } },
         },
       },
       {
@@ -95,6 +99,60 @@ export class MessagesService {
       }, {}),
       channelMessages: channelMessages.reduce((acc, item) => {
         acc[item._id.toString()] = item.count;
+        return acc;
+      }, {}),
+    };
+  }
+
+  async getLastMessageTimes(userId: string) {
+    // Get last message time for each user in direct messages
+    const directMessagesUsers = await this.messageModel.aggregate([
+      {
+        $match: {
+          $or: [{ sender: userId }, { recipientId: userId }],
+        },
+      },
+      {
+        $addFields: {
+          otherUser: {
+            $cond: {
+              if: { $eq: ['$sender', userId] },
+              then: '$recipientId',
+              else: '$sender',
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$otherUser',
+          lastMessageTime: { $max: '$createdAt' },
+        },
+      },
+    ]);
+
+    // Get last message time for each channel
+    const channelMessages = await this.messageModel.aggregate([
+      {
+        $match: {
+          channelId: { $exists: true, $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: '$channelId',
+          lastMessageTime: { $max: '$createdAt' },
+        },
+      },
+    ]);
+
+    return {
+      users: directMessagesUsers.reduce((acc, item) => {
+        acc[item._id.toString()] = item.lastMessageTime;
+        return acc;
+      }, {}),
+      channels: channelMessages.reduce((acc, item) => {
+        acc[item._id.toString()] = item.lastMessageTime;
         return acc;
       }, {}),
     };

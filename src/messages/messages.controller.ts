@@ -44,4 +44,9 @@ export class MessagesController {
   async getUnreadCounts(@CurrentUser() user: any) {
     return this.messagesService.getUnreadCounts(user._id.toString());
   }
+
+  @Get('last-message-times')
+  async getLastMessageTimes(@CurrentUser() user: any) {
+    return this.messagesService.getLastMessageTimes(user._id.toString());
+  }
 }
